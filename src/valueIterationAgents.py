@@ -11,9 +11,11 @@
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
-
-import mdp, util
 from learningAgents import ValueEstimationAgent
+from copy import deepcopy
+from random import random
+from util import Counter
+
 
 class ValueIterationAgent(ValueEstimationAgent):
     """
@@ -40,11 +42,41 @@ class ValueIterationAgent(ValueEstimationAgent):
         self.mdp = mdp
         self.discount = discount
         self.iterations = iterations
-        self.values = util.Counter()  # A Counter is a dict with default 0
+        self.states = mdp.getStates()
+        self.values = self.generate_initial_scores()
 
-        # Write value iteration code here
-        "*** YOUR CODE HERE ***"
+        """
+            Implements Bellman's equation
+        """
+        for iteration in range(iterations):
+            new_values = deepcopy(self.values)
+            for state in self.states:
+                if self.mdp.isTerminal(state) and state not in self.values:
+                    continue
+                if self.is_state_pre_terminal(state) and state not in self.values:
+                    new_values[state] = mdp.getReward(state, None, None)
+                    continue
 
+                best_action, best_reward = self.get_best_action(state)
+                new_values[state] = best_reward
+            self.values = new_values
+
+    def is_state_pre_terminal(self, state):
+        for action in self.mdp.getPossibleActions(state):
+            probabilities = self.mdp.getTransitionStatesAndProbs(state, action)
+            target_state, _ = sorted(probabilities, key=lambda prob: prob[1])[0]
+            if self.mdp.isTerminal(target_state):
+                return True
+        return False
+
+    def generate_initial_scores(self):
+        values = Counter()
+        for state in self.states:
+            if self.mdp.isTerminal(state):
+                continue
+            values[state] = 0
+            #values[state] = round(random(), 3)
+        return values
 
     def getValue(self, state):
         """
@@ -57,8 +89,26 @@ class ValueIterationAgent(ValueEstimationAgent):
           Compute the Q-value of action in state from the
           value function stored in self.values.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        probabilities = self.mdp.getTransitionStatesAndProbs(state, action)
+        q_value = 0
+        for possible_state, probability in probabilities:
+            if self.mdp.isTerminal(possible_state):
+                continue
+            possible_reward = self.getValue(possible_state)
+            q_value += possible_reward * self.discount * probability
+        return q_value
+
+    def get_best_action(self, state):
+        possible_actions = self.mdp.getPossibleActions(state)
+        best_reward = float("-inf")
+        best_action = None
+        for action in possible_actions:
+            reward = self.computeQValueFromValues(state, action)
+            if reward >= best_reward:
+                best_reward = reward
+                best_action = action
+        best_reward += self.mdp.getReward(state, best_action, None)
+        return (best_action, best_reward)
 
     def computeActionFromValues(self, state):
         """
@@ -69,8 +119,10 @@ class ValueIterationAgent(ValueEstimationAgent):
           there are no legal actions, which is the case at the
           terminal state, you should return None.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        if self.mdp.isTerminal(state):
+            return None
+        action, _ = self.get_best_action(state)
+        return action
 
     def getPolicy(self, state):
         return self.computeActionFromValues(state)
