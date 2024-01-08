@@ -4,7 +4,7 @@
 # educational purposes provided that (1) you do not distribute or publish
 # solutions, (2) you retain this notice, and (3) you provide clear
 # attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
+#
 # Attribution Information: The Pacman AI projects were developed at UC Berkeley.
 # The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
@@ -13,7 +13,7 @@
 
 from learningAgents import ValueEstimationAgent
 from copy import deepcopy
-from random import random
+from random import random  # noqa
 from util import Counter
 
 
@@ -51,20 +51,24 @@ class ValueIterationAgent(ValueEstimationAgent):
         for iteration in range(iterations):
             new_values = deepcopy(self.values)
             for state in self.states:
-                if self.mdp.isTerminal(state) and state not in self.values:
-                    continue
-                if self.is_state_pre_terminal(state) and state not in self.values:
-                    new_values[state] = mdp.getReward(state, None, None)
-                    continue
+                new_values[state] = float("-inf")
+                sum_v = 0
 
-                best_action, best_reward = self.get_best_action(state)
-                new_values[state] = best_reward
+                for action in self.mdp.getPossibleActions(state):
+                    sum_v = self.computeQValueFromValues(state, action)
+
+                    if sum_v > new_values[state]:
+                        new_values[state] = sum_v
+
+                if new_values[state] == float('-inf'):
+                    new_values[state] = 0
             self.values = new_values
 
     def is_state_pre_terminal(self, state):
         for action in self.mdp.getPossibleActions(state):
             probabilities = self.mdp.getTransitionStatesAndProbs(state, action)
             target_state, _ = sorted(probabilities, key=lambda prob: prob[1])[0]
+
             if self.mdp.isTerminal(target_state):
                 return True
         return False
@@ -75,7 +79,6 @@ class ValueIterationAgent(ValueEstimationAgent):
             if self.mdp.isTerminal(state):
                 continue
             values[state] = 0
-            #values[state] = round(random(), 3)
         return values
 
     def getValue(self, state):
@@ -89,26 +92,16 @@ class ValueIterationAgent(ValueEstimationAgent):
           Compute the Q-value of action in state from the
           value function stored in self.values.
         """
-        probabilities = self.mdp.getTransitionStatesAndProbs(state, action)
-        q_value = 0
-        for possible_state, probability in probabilities:
-            if self.mdp.isTerminal(possible_state):
-                continue
-            possible_reward = self.getValue(possible_state)
-            q_value += possible_reward * self.discount * probability
-        return q_value
+        if self.mdp.isTerminal(state):
+            return 0.0
 
-    def get_best_action(self, state):
-        possible_actions = self.mdp.getPossibleActions(state)
-        best_reward = float("-inf")
-        best_action = None
-        for action in possible_actions:
-            reward = self.computeQValueFromValues(state, action)
-            if reward >= best_reward:
-                best_reward = reward
-                best_action = action
-        best_reward += self.mdp.getReward(state, best_action, None)
-        return (best_action, best_reward)
+        q_value = 0.0
+        probabilities = self.mdp.getTransitionStatesAndProbs(state, action)
+        for possible_state, probability in probabilities:
+            possible_reward = self.mdp.getReward(state, action, possible_state)
+            possible_value = self.getValue(possible_state)
+            q_value += probability * (possible_reward + self.discount * possible_value)
+        return q_value
 
     def computeActionFromValues(self, state):
         """
@@ -121,8 +114,16 @@ class ValueIterationAgent(ValueEstimationAgent):
         """
         if self.mdp.isTerminal(state):
             return None
-        action, _ = self.get_best_action(state)
-        return action
+
+        best_value = float("-inf")
+        best_action = None
+        possible_actions = self.mdp.getPossibleActions(state)
+        for action in possible_actions:
+            value = self.computeQValueFromValues(state, action)
+            if value > best_value:
+                best_value = value
+                best_action = action
+        return best_action
 
     def getPolicy(self, state):
         return self.computeActionFromValues(state)
