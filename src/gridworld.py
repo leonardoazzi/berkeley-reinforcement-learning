@@ -18,7 +18,6 @@ import mdp
 import environment
 import util
 import optparse
-from time import sleep
 
 class Gridworld(mdp.MarkovDecisionProcess):
     """
@@ -385,11 +384,9 @@ def runEpisode(agent, environment, discount, decision, display, message, pause, 
 
         returns += reward * totalDiscount
         totalDiscount *= discount
-        # sleep(0.5)
 
     if 'stopEpisode' in dir(agent):
-        pass
-        # agent.stopEpisode()
+        agent.stopEpisode()
 
 def parseOptions():
     optParser = optparse.OptionParser()
